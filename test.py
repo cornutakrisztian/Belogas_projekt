@@ -1,2 +1,2 @@
 print("hello world!")
-dgrdgddgdgdf
+print("Krisztián egy fasz")
