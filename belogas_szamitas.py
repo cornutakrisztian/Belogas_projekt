@@ -2,8 +2,8 @@ import xlwings as xw
 import time
 
 # Fájlnevek beállítása
-target_file = "Oszlopközök(earth)2 másolata.xlsx"
-calc_file = "Vezetéksodrony_belógás_KZ_végleges másolata.xlsm"
+target_file = "Oszlopközök(earth)2.xlsx"
+calc_file = "Vezetéksodrony_belógás_KZ_végleges.xlsm"
 
 print("Excel alkalmazás indítása a háttérben...")
 app = xw.App(visible=False)
