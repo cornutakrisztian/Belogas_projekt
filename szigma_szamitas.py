@@ -7,7 +7,7 @@ import sys
 # 1. FÁJLOK MEGLÉTÉNEK ELLENŐRZÉSE
 szukseges_fajlok = {
     "oszlopkozok": "Oszlopközök(earth)2.xlsx",
-    "balmaz": "_Balmazújváros - Nádudvar 20-111. távvezeték bejárási jegyzőkönyv(1-92).xlsx",
+    "balmaz": "_Balmazújváros - Nádudvar 20-111. távvezeték bejárási jegyzőkönyv(1-92).xlsx",
     "iee": "IEEE738.xlsb",
     "belogas": "Vezetéksodrony_belógás_KZ_végleges.xlsm"
 }
@@ -28,7 +28,6 @@ if not minden_megvan:
 print("\nMinden fájl megvan. Adatok betöltése...")
 
 # 2. BEJÁRÁSI JEGYZŐKÖNYV ADATAINAK BEOLVASÁSA (Pandas)
-# Most már csak a hőmérsékletet és a mért magasságot vesszük ki innen, a funkciót nem!
 try:
     df_balmaz = pd.read_excel(szukseges_fajlok["balmaz"])
     print(f"-> Bejárási jegyzőkönyv sikeresen beolvasva ({len(df_balmaz)} sor).")
@@ -41,11 +40,15 @@ for idx, row in df_balmaz.iterrows():
     try:
         if len(row) > 5 and pd.notna(row.iloc[5]):
             oszlop_id = str(row.iloc[5]).split('.')[0].strip()  
+            funkcio_szoveg = str(row.iloc[14]).lower() if len(row) > 14 and pd.notna(row.iloc[14]) else ""
             kulso_hom = row.iloc[10] if len(row) > 10 and pd.notna(row.iloc[10]) else 20.0
             mert_magassag = row.iloc[9] if len(row) > 9 and pd.notna(row.iloc[9]) else None
             
+            funkcio = "feszítő" if "feszítő" in funkcio_szoveg else "tartó"
+            
             if oszlop_id and oszlop_id != 'nan':
                 balmaz_adatok[oszlop_id] = {
+                    'funkcio': funkcio,
                     'kulso_hom': kulso_hom,
                     'mert_magassag': mert_magassag
                 }
@@ -83,24 +86,22 @@ try:
     max_sor = ws_oszlop.range('A' + str(ws_oszlop.cells.last_cell.row)).end('up').row
     print(f"-> Feldolgozandó sorok száma az Oszlopközökben: {max_sor - 1}")
     
-    # MÓDOSÍTÁS: A K oszlopot (Oszloptípus) BÉKÉN HAGYJUK! 
-    # Csak beolvassuk a manuálisan beírt értékeket a feszítőközök meghatározásához, és kitöltjük a hőmérsékletet (M).
+    # Oszloptípus (K) és Hőmérséklet (M) kitöltése
     feszito_pontok = []
     for sor in range(2, max_sor + 1):
         elso_oszlop = str(ws_oszlop.range(f'A{sor}').value).split('.')[0].strip()
-        
-        # Kiolvassuk, amit a felhasználó manuálisan beírt a K oszlopba
-        manualis_funkcio = str(ws_oszlop.range(f'K{sor}').value).strip().lower()
             
         if elso_oszlop in balmaz_adatok:
+            ws_oszlop.range(f'K{sor}').value = balmaz_adatok[elso_oszlop]['funkcio']
             ws_oszlop.range(f'M{sor}').value = balmaz_adatok[elso_oszlop]['kulso_hom']
+            if balmaz_adatok[elso_oszlop]['funkcio'] == 'feszítő':
+                feszito_pontok.append((sor, elso_oszlop))
+        else:
+            ws_oszlop.range(f'K{sor}').value = "tartó"
             
-        if "feszítő" in manualis_funkcio:
-            feszito_pontok.append((sor, elso_oszlop))
-            
-    print(f"-> Manuálisan megadott feszítő oszlopok: {[p[1] for p in feszito_pontok]}")
+    print(f"-> Talált feszítő oszlopok: {[p[1] for p in feszito_pontok]}")
 
-    # Feszítőközök (J) kiszámítása a manuális adatok alapján
+    # Feszítőközök (J) kiszámítása
     for sor in range(2, max_sor + 1):
         aktualis_id = str(ws_oszlop.range(f'A{sor}').value).split('.')[0].strip()
         try:
@@ -152,21 +153,22 @@ try:
                     ws_szamitas.range('E20').value = sodrony_hom
                     ws_szamitas.range('E22').value = mert_magassag
                     
-                    # 1. KÍSÉRLET: Makró futtatása
+                    # 1. KÍSÉRLET: Makró futtatása a megadott pontos néven
                     try:
                         makro = app.macro("Vezetéksodrony_belógás_KZ_végleges.xlsm!ComputeSigmaFromMeasuredSag")
                         makro()
+                        # Kiolvasás a fotó szerinti E23-as cellából
                         szigma = ws_szamitas.range('E23').value 
                     except Exception as macro_err:
                         print(f"   ⚠️ Makró futtatási zökkenő, megpróbáljuk a beépített Célértékkeresőt...")
                         szigma = None
                     
-                    # 2. KÍSÉRLET (Tartalék): Célértékkereső (GoalSeek)
+                    # 2. KÍSÉRLET (Tartalék): Ha a makró nem adott vissza értéket, a GoalSeek-kel kényszerítjük ki
                     if szigma is None or szigma == "":
                         try:
-                            ws_szamitas.range('E23').value = ws_szamitas.range('E21').value  
-                            cel_cella = ws_szamitas.range('E32').api      
-                            valtozo_cella = ws_szamitas.range('E23').api  
+                            ws_szamitas.range('E23').value = ws_szamitas.range('E21').value  # Tervezett érték kezdésnek
+                            cel_cella = ws_szamitas.range('E32').api      # Minimális föld feletti magasság cellája
+                            valtozo_cella = ws_szamitas.range('E23').api  # Kiszámolt meglévő szigma cellája
                             
                             cel_cella.GoalSeek(Goal=mert_magassag, ChangingCell=valtozo_cella)
                             szigma = ws_szamitas.range('E23').value
@@ -187,7 +189,7 @@ try:
                 ws_oszlop.range(f'I{sor}').value = "Nincs mért adat"
 
     wb_oszlop.save()
-    print("\n🎉 A folyamat sikeresen lefutott! A szigmák frissítve lettek a manuális oszloptípusok alapján.")
+    print("\n🎉 A folyamat sikeresen lefutott! Az adatok a meglévő oszlopokban frissültek.")
 
 except Exception as e:
     print(f"\n❌ Súlyos hiba történt a végrehajtás során: {e}")
