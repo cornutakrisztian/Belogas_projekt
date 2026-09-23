@@ -59,6 +59,9 @@ Feladatok:
 
 - sigma ertekek es geometriai adatok alapjan belogas meghatarozasa
 - eredmenyek beirasa a vegleges Excel fajlba
+## Szerzok:
+ cornutakrisztian
+ fortri22
 
 
 
