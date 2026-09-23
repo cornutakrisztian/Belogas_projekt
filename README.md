@@ -61,7 +61,7 @@ Feladatok:
 - eredmenyek beirasa a vegleges Excel fajlba
 ## Szerzok:
  cornutakrisztian
- fortri22
+ Fortri22
 
 
 
