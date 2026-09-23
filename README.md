@@ -20,7 +20,7 @@ openpyxl
 xlrd
 numpy
 
-## Szükséges bemeneti fajlok
+## Szukseges bemeneti fajlok
 
 A repository nem tartalmazza sem a  szamitast vegzo sem az adatokat biztosito excel fajlokat.
 
